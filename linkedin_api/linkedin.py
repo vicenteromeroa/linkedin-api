@@ -1,11 +1,13 @@
 """
 Provides linkedin api-related code
 """
-import base64
+import os
+import hashlib
 import json
 import logging
 import random
 import uuid
+import pickle
 from operator import itemgetter
 from time import sleep, time
 from urllib.parse import quote, urlencode
@@ -86,10 +88,21 @@ class Linkedin(object):
 
     def _fetch(self, uri, evade=default_evade, base_request=False, **kwargs):
         """GET request to Linkedin API"""
+        if not os.path.exists('cache_linkedinapi'):
+            os.makedirs('cache_linkedinapi')
         evade()
-
+        
         url = f"{self.client.API_BASE_URL if not base_request else self.client.LINKEDIN_BASE_URL}{uri}"
-        return self.client.session.get(url, **kwargs)
+        hash_value = hashlib.sha1(str([url]).encode('utf-8')).hexdigest()+'_linkedin_api_.gz'
+        path_cache = os.path.join('cache_linkedinapi',hash_value)
+        if not os.path.exists(path_cache):
+            r = self.client.session.get(url, **kwargs)
+            with open(path_cache,'wb') as f:
+                pickle.dump(r,f)
+        else:
+            with open(path_cache,'rb') as f:
+                r = pickle.load(f)
+        return r
 
     def _post(self, uri, evade=default_evade, base_request=False, **kwargs):
         """POST request to Linkedin API"""
@@ -622,7 +635,10 @@ class Linkedin(object):
         # https://www.linkedin.com/voyager/api/identity/profiles/ACoAAAKT9JQBsH7LwKaE9Myay9WcX8OVGuDq9Uw
         res = self._fetch(f"/identity/profiles/{public_id or urn_id}/profileView")
 
-        data = res.json()
+        try:
+            data = res.json()
+        except:
+            self.logger.warning("request failed")
         if data and "status" in data and data["status"] != 200:
             self.logger.info("request failed: {}".format(data))
             return {}
