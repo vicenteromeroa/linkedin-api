@@ -122,9 +122,12 @@ class Linkedin(object):
             profile_urn = f"urn:li:fsd_profile:{urn_id}"
         else:
             profile = self.get_profile(public_id=public_id)
-            profile_urn = profile["profile_urn"].replace(
-                "fs_miniProfile", "fsd_profile"
-            )
+            if profile.get("profile_urn"):
+                profile_urn = profile["profile_urn"].replace(
+                    "fs_miniProfile", "fsd_profile"
+                )
+            else:
+                return {}
         url_params["profileUrn"] = profile_urn
         url = f"/identity/profileUpdatesV2"
         res = self._fetch(url, params=url_params)
@@ -621,7 +624,7 @@ class Linkedin(object):
 
         data = res.json()
         if data and "status" in data and data["status"] != 200:
-            self.logger.info("request failed: {}".format(data["message"]))
+            self.logger.info("request failed: {}".format(data))
             return {}
 
         # massage [profile] data
